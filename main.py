@@ -7,7 +7,8 @@ import spotipy.util as util
 from json.decoder import JSONDecodeError
 import pandas as pd
 from tqdm import tqdm
-from data_extraction.extraction_fns import track_feature_extraction
+from data_extraction.extraction_fns import user_track_feature_extraction
+from data_extraction.feature_eng import playlist_preprocessing
 
 
 
@@ -45,12 +46,16 @@ print(deviceID)
 
 # Current saved songs information
 top_tracks = spotifyObject.current_user_top_tracks(limit=50)['items']
+us_top_playlist = spotifyObject
 
-track_df = track_feature_extraction(top_tracks, spotifyObject)
-track_df.to_csv('data_extraction/track_dataframe.csv', index=False)
-print(track_df.head())
+# Get user top track playlist
+user_track_features = user_track_feature_extraction(top_tracks, spotifyObject)
+playlist_preprocessing(user_track_features)
 
-#audio_features = spotifyObject.audio_features(top_tracks[0]['id'])[0]
-#print(audio_features_names)
-#print(audio_features)
+# Get top 50 US tracks
+top_us_tracks = spotifyObject.featured_playlists(country='US', limit=50)
+import pdb
+pdb.set_trace()
+print("Finished")
 
+# Get top today tracks

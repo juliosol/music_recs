@@ -8,7 +8,7 @@ audio_features_names = ['danceability', 'energy', 'key', 'loudness', 'mode',
 ## TODO: Add lyrics analysis data
 ## audio_analysis = spotifyObject.audio_analysis(first_track)
 
-def track_feature_extraction(track_list, spotifyObject):
+def user_track_feature_extraction(track_list, spotifyObject):
     """
     Function used to extract track features and analysis from a list of tracks
     from spotify.
@@ -24,14 +24,12 @@ def track_feature_extraction(track_list, spotifyObject):
         curr_track_dict = {}
         track_artist = tr['artists'][0]
         track_album = tr['album']
-        #track_features = spotifyObject.audio_features(tr['id'])[0]
-        import pdb
-        pdb.set_trace()
         curr_track_dict['track_name'] = tr['name']
         curr_track_dict['track_artist_name'] = track_artist['name']
-        #curr_track_dict['track_artist_id'] = track_artist['id']
+        artist_info = spotifyObject.artist(tr['artists'][0]['id'])
+        curr_track_dict['artist_genres'] = artist_info['genres']
+        curr_track_dict['artist_popularity'] = artist_info['popularity']
         curr_track_dict['track_album_type'] = track_album['album_type']
-        #curr_track_dict['track_album_available_markets'] = track_album['available_markets']
         curr_track_dict['track_album_name'] = track_album['name']
         curr_track_dict['track_album_release_date'] = track_album['release_date']
         curr_track_dict['track_duration_ms'] = tr['duration_ms']
