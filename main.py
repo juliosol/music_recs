@@ -7,7 +7,7 @@ import spotipy.util as util
 from json.decoder import JSONDecodeError
 import pandas as pd
 from tqdm import tqdm
-from data_extraction.extraction_fns import user_track_feature_extraction
+from data_extraction.extraction_fns import user_track_feature_extraction, track_labeler
 from data_extraction.feature_eng import playlist_preprocessing
 
 
@@ -45,17 +45,21 @@ deviceID = devices['devices'][0]['id']
 print(deviceID)
 
 # Current saved songs information
-top_tracks = spotifyObject.current_user_top_tracks(limit=50)['items']
-us_top_playlist = spotifyObject
+top_tracks = track_labeler(spotifyObject.current_user_top_tracks(limit=50)['items'], 'user')
 
-# Get user top track playlist
-user_track_features = user_track_feature_extraction(top_tracks, spotifyObject)
-playlist_preprocessing(user_track_features)
 
 # Get top 50 US tracks
-top_us_tracks = spotifyObject.featured_playlists(country='US', limit=50)
-import pdb
-pdb.set_trace()
-print("Finished")
+#categories = spotifyObject.categories()
+#print([(cat['id'], cat['name']) for cat in categories['categories']['items']])
+summer_playlist_info = spotifyObject.category_playlists(category_id='0JQ5DAqbMKFLVaM30PMBm4')['playlists']['items'][0]
+summer_playlist_id = summer_playlist_info['id']
+summer_playlist_tracks = track_labeler([it['track'] for it in spotifyObject.playlist(summer_playlist_id)['tracks']['items']], 'non_user')
 
-# Get top today tracks
+total_tracks = top_tracks + summer_playlist_tracks
+
+
+# Get track features
+track_features = user_track_feature_extraction(total_tracks, spotifyObject)
+playlist_preprocessing(track_features, 'track_features')
+
+print("Finished")

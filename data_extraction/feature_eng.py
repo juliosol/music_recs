@@ -92,23 +92,39 @@ def one_hot_encoder(dataframe, col_name='subjectivity'):
     return pd.concat([dataframe, df_transformed], axis=1)
 
 def genres_tf_idf(dataframe):
+    """
+    Function used to transform the genres into tf-idf matrix.
+    Input:
+    - dataframe: pandas dataframe of features
+    Output:
+    - dataframe
+    """
     vectorizer = TfidfVectorizer()
     tfidf_matrix = vectorizer.fit_transform(dataframe['artist_genres'].apply(lambda x: " ".join(x)))
     genre_df = pd.DataFrame(tfidf_matrix.toarray())
     genre_df.columns = ['genre' + "|" + i for i in vectorizer.get_feature_names_out()]
-    #genre_df.drop(columns='genre|unknown')
     genre_df.reset_index(drop=True, inplace=True)
     genre_df.iloc[0]
     return pd.concat([dataframe, genre_df], axis=1)
     
 def datetime_converter(dataframe):
+    """
+    Function used to convert the datetime columns into datetime format.
+    Input:
+    - dataframe: pandas dataframe of features
+    """
     dataframe['track_album_release_date'] = pd.to_datetime(dataframe['track_album_release_date'], format='mixed')
     dataframe['track_album_release_date'] = dataframe['track_album_release_date'].astype(int) / 10**9
     dataframe['track_explicit'] = dataframe['track_explicit'].replace({True: 1, False: 0})
     return dataframe
 
 def feature_normalizer(dataframe):
-    cleaned_df = dataframe.drop(['artist_genres', 'track_mode', 'track_key', 'track_name_subjectivity', 'track_name_polarity', 'song_info'], axis=1)
+    """
+    Function used to normalize the audio features.
+    Input:
+    - dataframe: pandas dataframe of features
+    """
+    cleaned_df = dataframe.drop(['artist_genres', 'track_mode', 'track_key', 'track_name_subjectivity', 'track_name_polarity'], axis=1)
     pop = cleaned_df[["artist_popularity","track_popularity"]].reset_index(drop = True)
     scaler = MinMaxScaler()
     pop_scaled = pd.DataFrame(scaler.fit_transform(pop), columns = pop.columns) * 0.2 
@@ -121,12 +137,15 @@ def feature_normalizer(dataframe):
 
     cleaned_df = cleaned_df.drop(['artist_popularity', 'track_popularity'], axis=1)
     cleaned_df = cleaned_df.drop(list(floats.columns), axis=1)
-    print(cleaned_df.columns)
-    print(cleaned_df.dtypes)
-
+    
     return pd.concat([cleaned_df, pop_scaled, floats_scaled], axis=1)
 
-def playlist_preprocessing(dataframe):
+def playlist_preprocessing(dataframe, df_name):
+    """
+    Function doing all the preprocessing of the dataframe
+    Input: 
+    - df_name: name of the dataframe that will be saved
+    """
     dataframe = drop_duplicates_df(dataframe)
     dataframe = sentiment_analysis(dataframe, 'song_info')
     dataframe = datetime_converter(dataframe)
@@ -137,7 +156,7 @@ def playlist_preprocessing(dataframe):
     dataframe = one_hot_encoder(dataframe, 'mode')
 
     dataframe = genres_tf_idf(dataframe)
-    dataframe.to_csv('data_extraction/user_track_features.csv', index=False)
+    dataframe.to_csv('data_extraction/' + df_name + '.csv', index=False)
 
     normalized_dataframe = feature_normalizer(dataframe)
-    normalized_dataframe.to_csv('data_extraction/normalized_user_track_features.csv', index=False)
+    normalized_dataframe.to_csv('data_extraction/normalized_' + df_name + '.csv', index=False)
