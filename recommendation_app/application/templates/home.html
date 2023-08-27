@@ -23,37 +23,37 @@
             </div>
           </header>
           <div class="break"></div>
-    
-        <div class='container'>
-        {% block about %}
-            <div class="input_field">
-                <h2 style='color: #ececec'> Please, input a user id</h2>
-                <div class="break"></div>
-                    <div class="ml-container">
-                        <form action="{{ url_for('recommend') }}"  id="form1" method="POST">
-                            <input class="input1" type="text" name="URL">
-                            <div class="break"></div>
-                            <small id="emailHelp" class="form-text text-muted"> You can find the playlist link by following instructions <a href="https://wordpress.com/support/audio/spotify/" target="_blank"> here </a> </small>
-                            <!--<div class="break"></div>
-                                <label style='color: #ececec' for="number-of-recs" >How many songs do you want?:</label>
-                                <select name="number-of-recs" id="number-of-recs" form="form1">
-                                    <option value="5" selected> 5</option>
-                                    <option value="10">10</option>
-                                    <option value="15">15</option>
-                                    <option value="20">20</option>
-                                </select>
+
+          <div class='container'>
+            {% block about %}
+                <div class="input_field">
+                    <h2 style='color: #ececec'> Please, input a playlist ID</h2>
+                    <div class="break"></div>
+                        <div class="ml-container">
+                            <form action="{{ url_for('recommend') }}"  id="form1" method="POST">
+                                <input class="input1" type="text" name="SpotUserName">
                                 <div class="break"></div>
-                            <input class='button1' form='form1' value='Get recommendations!' type="submit">-->
-                        </form>
-                    </div>
-            </div>
-    
-                <div class="results">
-                    {% block results %}
-                    {% endblock %}
+                                <small id="emailHelp" class="form-text text-muted"> You can find the playlist link by following instructions <a href="https://wordpress.com/support/audio/spotify/" target="_blank"> here </a> </small>
+                                <div class="break"></div>
+                                    <label style='color: #ececec' for="number-of-recs" >How many songs do you want?:</label>
+                                    <select name="number-of-recs" id="number-of-recs" form="form1">
+                                        <option value="5" selected> 5</option>
+                                        <option value="10">10</option>
+                                        <option value="15">15</option>
+                                        <option value="20">20</option>
+                                    </select>
+                                    <div class="break"></div>
+                                <input class='button1' form='form1' value='Get recommendations!' type="submit">
+                            </form>
+                        </div>
                 </div>
-            </div>
-        {% endblock %}
+        
+                    <div class="results">
+                        {% block results %}
+                        {% endblock %}
+                    </div>
+                </div>
+            {% endblock %}
     
     </body>
 
