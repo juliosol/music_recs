@@ -17,7 +17,7 @@ with open('credentials.json') as f:
 	credentials = json.load(f)
 
 # Get the username from terminal
-username = sys.argv[1]
+username = input("Enter username in spotify: ")
 scope = 'user-library-read user-read-playback-state user-modify-playback-state user-top-read'
 
 # Erase cache and prompt for user permission
@@ -42,12 +42,13 @@ spotifyObject = spotipy.Spotify(auth=token)
 # Get current device
 devices = spotifyObject.devices()
 deviceID = devices['devices'][0]['id']
-print(deviceID)
 
 # Current saved songs information
-user_top_tracks = spotifyObject.current_user_top_tracks(limit=50)['items'] #track_labeler(spotifyObject.current_user_top_tracks(limit=50)['items'], 'user')
+user_top_tracks = spotifyObject.current_user_top_tracks(limit=10)['items'] #track_labeler(spotifyObject.current_user_top_tracks(limit=50)['items'], 'user')
 print(f"THis is the type of user_top_tracks {type(user_top_tracks)}")
 
+import pdb
+pdb.set_trace()
 # Get track features
 track_features = user_track_feature_extraction(user_top_tracks, spotifyObject)
 user_track_df, normalized_user_track_df = playlist_preprocessing(track_features, 'track_features')
@@ -69,8 +70,6 @@ for playlist in playlist_info:
 
 # Get playlist tracks
 total_playlist_features = user_track_feature_extraction(total_playlist_tracks, spotifyObject, type='playlists')
-import pdb
-pdb.set_trace()
 playlist_df, normalized_playlist_df = playlist_preprocessing(total_playlist_features, 'playlist_track_features')
 
 print("Finished")

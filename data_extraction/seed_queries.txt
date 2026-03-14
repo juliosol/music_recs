@@ -1,0 +1,12 @@
+# Add one search query per line. Lines starting with # are ignored.
+# Example:
+# Taylor Swift Anti-Hero
+# Daft Punk Get Lucky
+Kjarkas
+Musica Latinoamericana
+Ska Music
+Rock nacional mexicano
+JPop
+Musica anime Latino
+Boleros Latinos
+Cancion de protesta

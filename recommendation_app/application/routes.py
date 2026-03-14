@@ -1,7 +1,7 @@
-from application import app
+from . import app
 from flask import Flask, render_template, request
-from application.features import *
-from application.model import *
+from .features import *
+from .model import *
 
 allSongDF = pd.read_csv("./data/playlist_track_features.csv")
 allSongFeatureSetDF = pd.read_csv("./data/normalized_playlist_track_features.csv")

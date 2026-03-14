@@ -1,0 +1,26 @@
+# Core dependencies
+pandas
+numpy
+scikit-learn
+seaborn
+matplotlib
+tqdm
+flask
+
+# YouTube dependencies
+google-api-python-client
+google-auth-oauthlib
+google-auth-httplib2
+youtube-search-python
+
+# Audio analysis
+librosa
+soundfile
+audioread
+
+# Audio download
+yt-dlp
+
+# Additional utilities
+textblob
+requests
