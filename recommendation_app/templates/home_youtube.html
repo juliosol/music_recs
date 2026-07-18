@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Music Recommender</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .stats {
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 10px;
+            color: white;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 1em;
+        }
+
+        input[type="url"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        input[type="url"]:focus,
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin-top: 5px;
+        }
+
+        .range-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .range-value {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 5px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .divider {
+            text-align: center;
+            margin: 30px 0;
+            position: relative;
+        }
+
+        .divider::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            width: 100%;
+            height: 1px;
+            background: #e0e0e0;
+        }
+
+        .divider span {
+            background: white;
+            padding: 0 20px;
+            position: relative;
+            color: #999;
+            font-weight: 600;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 YouTube Music Recommender</h1>
+            <p>Discover new music based on your favorite YouTube playlists</p>
+            {% if total_songs > 0 %}
+            <div class="stats">
+                📊 Database: {{ total_songs }} songs
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h2>🎯 Get Personalized Recommendations</h2>
+            <form action="/recommend" method="POST">
+                <div class="form-group">
+                    <label for="youtube_playlist_url">
+                        YouTube Playlist URL
+                    </label>
+                    <input type="url"
+                           id="youtube_playlist_url"
+                           name="youtube_playlist_url"
+                           placeholder="https://youtube.com/playlist?list=..."
+                           required>
+                    <div class="info-box">
+                        💡 Paste a YouTube playlist URL to get recommendations based on your music taste
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="number-of-recs">
+                        Number of Recommendations
+                    </label>
+                    <input type="number"
+                           id="number-of-recs"
+                           name="number-of-recs"
+                           min="1"
+                           max="50"
+                           value="10">
+                </div>
+
+                <div class="form-group">
+                    <label for="diversity">
+                        Playlist Variety
+                        <span class="range-value" id="diversity-value">0.3</span>
+                    </label>
+                    <input type="range"
+                           id="diversity"
+                           name="diversity"
+                           min="0"
+                           max="1"
+                           step="0.1"
+                           value="0.3"
+                           oninput="document.getElementById('diversity-value').textContent = this.value">
+                    <div class="range-labels">
+                        <span>Similar</span>
+                        <span>Balanced</span>
+                        <span>Diverse</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="max_per_artist">
+                        Max Songs Per Artist
+                    </label>
+                    <input type="number"
+                           id="max_per_artist"
+                           name="max_per_artist"
+                           min="1"
+                           max="10"
+                           value="3">
+                </div>
+
+                <button type="submit">🎵 Get Recommendations</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>🔍 Discover by Mood</h2>
+            <form action="/discover" method="POST">
+                <div class="form-group">
+                    <label for="mood">
+                        Select Mood
+                    </label>
+                    <select id="mood" name="mood">
+                        <option value="energetic">⚡ Energetic</option>
+                        <option value="calm">😌 Calm & Relaxing</option>
+                        <option value="happy">😊 Happy & Upbeat</option>
+                        <option value="melancholic">😔 Melancholic & Emotional</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="number-of-recs-discover">
+                        Number of Songs
+                    </label>
+                    <input type="number"
+                           id="number-of-recs-discover"
+                           name="number-of-recs"
+                           min="5"
+                           max="50"
+                           value="20">
+                </div>
+
+                <button type="submit">🎲 Discover Music</button>
+            </form>
+        </div>
+
+        <div class="footer">
+            <p>Made with ❤️ using YouTube Data API & Machine Learning</p>
+        </div>
+    </div>
+</body>
+</html>

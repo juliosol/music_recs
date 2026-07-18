@@ -21,7 +21,7 @@ def track_labeler(song_track, label_string):
         tr['label'] = label_string
     return song_track
 
-def user_track_feature_extraction(track_list, spotifyObject, type='user'):
+def user_track_feature_extraction(track_list, spotifyObject, type_user='user'):
     """
     Function used to extract track features and analysis from a list of tracks
     from spotify.
@@ -34,10 +34,8 @@ def user_track_feature_extraction(track_list, spotifyObject, type='user'):
     user_top_tracks_data = []
 
     for tr in tqdm(track_list):
-        if (type != 'user'):
+        if (type_user != 'user'):
             tr = tr['track']
-        #import pdb
-        #pdb.set_trace()
         curr_track_dict = {}
         track_artist = tr['artists'][0]
         track_album = tr['album']
@@ -53,10 +51,11 @@ def user_track_feature_extraction(track_list, spotifyObject, type='user'):
         curr_track_dict['track_duration_ms'] = tr['duration_ms']
         curr_track_dict['track_explicit'] = tr['explicit']
         curr_track_dict['track_popularity'] = tr['popularity']
+        import pdb
+        pdb.set_trace()
         audio_features = spotifyObject.audio_features(tr['id'])[0]
         for feat_name in audio_features_names:
             curr_track_dict['track_'+feat_name] = audio_features[feat_name]
-        #curr_track_dict['label'] = tr['label']
         user_top_tracks_data.append(curr_track_dict)
     
     return pd.DataFrame.from_dict(user_top_tracks_data)

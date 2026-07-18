@@ -1,0 +1,16 @@
+{% extends "home_youtube.html" %}
+{% block results %}
+<div class='results'>
+    <h2 style='color: #ececec'>Your Recommendations</h2>
+    <p style='color: #9e9e9e'>Found {{ songs|length }} recommendations for you:</p>
+        {% for song in songs %}
+        <div class='song' style="margin-bottom: 10px;">
+            <p style="font-size: 11pt; color: #ececec">
+                <a href="{{ song.url }}" target="_blank" style="color: #4db8ff">
+                    {{ song.title }}
+                </a>
+            </p>
+        </div>
+        {% endfor %}
+</div>
+{% endblock %}
