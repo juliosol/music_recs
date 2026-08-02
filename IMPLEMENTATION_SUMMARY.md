@@ -13,7 +13,7 @@ A complete migration from Spotify to YouTube-based music recommendation system t
 
 ### 1. YouTube Data Extraction Layer
 
-**Files Created:**
+**Files Created:**   
 - `youtube_extraction/youtube_api.py` - YouTube API wrapper
 - `youtube_extraction/audio_features.py` - Audio analysis using librosa
 - `youtube_extraction/youtube_pipeline.py` - Complete extraction pipeline

@@ -3,6 +3,7 @@ YouTube Data Pipeline
 Combines YouTube API and audio analysis into complete feature extraction pipeline
 """
 import logging
+import time
 import pandas as pd
 from tqdm import tqdm
 from .youtube_api import YouTubeAPI, load_api_key
@@ -118,13 +119,14 @@ class YouTubeMusicPipeline:
             logger.error(f"Error processing '{query}': {e}")
             return None
 
-    def extract_playlist_features(self, playlist_url, max_videos=50, use_cache=True):
+    def extract_playlist_features(self, playlist_url, max_videos=50, use_cache=True, download_audio=True):
         """
         Extract features for all videos in a YouTube playlist
         Args:
             playlist_url: Full YouTube playlist URL or playlist ID
             max_videos: Maximum number of videos to process
             use_cache: Use cached features if available
+            download_audio: If False, skip audio download and use default audio features
         Returns:
             List of track feature dicts
         """
@@ -174,14 +176,18 @@ class YouTubeMusicPipeline:
                     'track_explicit': False,
                 }
 
-                # Extract audio features
-                audio_features = self.audio_extractor.download_and_analyze(video_id, use_cache)
+                if download_audio:
+                    # Extract audio features
+                    audio_features = self.audio_extractor.download_and_analyze(video_id, use_cache)
 
-                if audio_features:
-                    for key, value in audio_features.items():
-                        if key != 'duration_ms':
-                            track[f'track_{key}'] = value
+                    if audio_features:
+                        for key, value in audio_features.items():
+                            if key != 'duration_ms':
+                                track[f'track_{key}'] = value
+                    else:
+                        track.update(self._get_default_audio_features())
                 else:
+                    # Fast path for online requests: avoid request-time audio download.
                     track.update(self._get_default_audio_features())
 
                 tracks.append(track)
@@ -192,6 +198,97 @@ class YouTubeMusicPipeline:
 
         logger.info(f"Successfully processed {len(tracks)} tracks")
         return tracks
+
+    def extract_features_from_video_ids(self, video_ids, use_cache=True, download_audio=True, source='seed'):
+        """
+        Extract track features from explicit video IDs.
+        Args:
+            video_ids: List of YouTube video IDs
+            use_cache: Use cached audio features
+            download_audio: Whether to download audio for full feature extraction
+            source: Source label for provenance
+        Returns:
+            List of track feature dicts
+        """
+        tracks = []
+        for video_id in tqdm(video_ids, desc=f"Extracting features ({source})"):
+            try:
+                video_details = self.youtube_api.get_video_details(video_id)
+                if not video_details:
+                    continue
+
+                artist, track_name = self._parse_title(video_details['title'])
+
+                track = {
+                    'id': video_id,
+                    'track_name': track_name,
+                    'track_artist_name': artist,
+                    'youtube_url': f"https://youtube.com/watch?v={video_id}",
+                    'track_duration_ms': video_details['duration'],
+                    'views': video_details['views'],
+                    'likes': video_details['likes'],
+                    'track_album_release_date': video_details['published_at'],
+                    'track_album_type': 'single',
+                    'track_album_name': track_name,
+                    'artist_genres': [],
+                    'artist_popularity': self._estimate_popularity(video_details['views']),
+                    'track_popularity': self._estimate_popularity(video_details['views']),
+                    'track_explicit': False,
+                    'source_type': source,
+                    'source_ref': source,
+                    'ingested_at': int(time.time()),
+                }
+
+                if download_audio:
+                    audio_features = self.audio_extractor.download_and_analyze(video_id, use_cache)
+                    if audio_features:
+                        for key, value in audio_features.items():
+                            if key != 'duration_ms':
+                                track[f'track_{key}'] = value
+                    else:
+                        track.update(self._get_default_audio_features())
+                else:
+                    track.update(self._get_default_audio_features())
+
+                tracks.append(track)
+            except Exception as e:
+                logger.error(f"Error processing video {video_id} in {source}: {e}")
+                continue
+
+        return tracks
+
+    def expand_from_related_videos(self, seed_video_ids, per_seed=10):
+        """
+        Expansion source: collect related video IDs from seed videos.
+        Args:
+            seed_video_ids: Seed video IDs
+            per_seed: Max related IDs per seed
+        Returns:
+            Unique related video IDs
+        """
+        related = []
+        for seed_id in tqdm(seed_video_ids, desc='Fetching related IDs'):
+            rel = self.youtube_api.get_related_videos(seed_id, max_results=per_seed)
+            related.extend(rel)
+
+        # Deduplicate while preserving order
+        return list(dict.fromkeys(related))
+
+    def expand_from_channels(self, channel_ids, per_channel=10):
+        """
+        Expansion source: collect video IDs from seed channels.
+        Args:
+            channel_ids: Channel IDs to expand from
+            per_channel: Max IDs per channel
+        Returns:
+            Unique channel video IDs
+        """
+        collected = []
+        for channel_id in tqdm(channel_ids, desc='Fetching channel IDs'):
+            vids = self.youtube_api.get_channel_videos(channel_id, max_results=per_channel)
+            collected.extend(vids)
+
+        return list(dict.fromkeys(collected))
 
     def extract_popular_music_videos(self, region='US', max_results=50, use_cache=True):
         """

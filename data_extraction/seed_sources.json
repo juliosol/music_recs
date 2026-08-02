@@ -1,0 +1,36 @@
+{
+  "queries": [
+    {
+      "name": "global_pop_rotation",
+      "items": [
+        "Top global pop 2026",
+        "Top afrobeats 2026",
+        "Top k-pop 2026"
+      ]
+    },
+    {
+      "name": "mood_focus",
+      "items": [
+        "chill indie playlist",
+        "high energy gym music",
+        "focus instrumental beats"
+      ]
+    }
+  ],
+  "playlists": [
+    {
+      "name": "global_editorial",
+      "items": [
+        "https://www.youtube.com/playlist?list=PL4fGSI1pDJn5rWitrRWFKdm-ulaFiIyoK"
+      ]
+    }
+  ],
+  "channels": [
+    {
+      "name": "seed_music_channels",
+      "items": [
+        "UC-9-kyTW8ZkZNDHQJ6FgpwQ"
+      ]
+    }
+  ]
+}

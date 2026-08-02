@@ -222,7 +222,7 @@
                     <div class="song-artist">{{ song.artist }}</div>
 
                     <div class="song-actions">
-                        <a href="{{ song.url }}" target="_blank" class="btn btn-primary">
+                        <a href="{{ song.url }}" target="_blank" class="btn btn-primary" onclick="trackEvent('play_click')">
                             ▶️ Play on YouTube
                         </a>
                     </div>
@@ -254,6 +254,7 @@
         function copyPlaylistLinks() {
             const links = songs.map(song => song.url).join('\n');
             navigator.clipboard.writeText(links).then(() => {
+                trackEvent('copy_links');
                 alert('✓ Playlist links copied to clipboard!');
             }).catch(err => {
                 console.error('Failed to copy:', err);
@@ -275,6 +276,19 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+            trackEvent('download_playlist');
+        }
+
+        function trackEvent(eventName) {
+            fetch('/events', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ event: eventName })
+            }).catch(() => {
+                // Best-effort telemetry, no user-facing errors.
+            });
         }
     </script>
 </body>

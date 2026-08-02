@@ -16,12 +16,13 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def extract_features_from_youtube_playlist(playlist_url, max_videos=20):
+def extract_features_from_youtube_playlist(playlist_url, max_videos=20, download_audio=False):
     """
     Extract features from YouTube playlist URL
     Args:
         playlist_url: Full YouTube playlist URL
         max_videos: Maximum number of videos to process
+        download_audio: If False, use metadata-only fast path for request-time inference
     Returns:
         DataFrame with normalized features matching database schema
     """
@@ -31,8 +32,13 @@ def extract_features_from_youtube_playlist(playlist_url, max_videos=20):
         # Initialize pipeline
         pipeline = YouTubeMusicPipeline()
 
-        # Extract tracks from playlist
-        tracks = pipeline.extract_playlist_features(playlist_url, max_videos=max_videos, use_cache=True)
+        # Extract tracks from playlist (fast path by default for web requests)
+        tracks = pipeline.extract_playlist_features(
+            playlist_url,
+            max_videos=max_videos,
+            use_cache=True,
+            download_audio=download_audio,
+        )
 
         if not tracks:
             logger.error("No tracks extracted from playlist")

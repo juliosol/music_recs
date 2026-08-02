@@ -4,6 +4,7 @@ Script to build initial music database from YouTube
 """
 import os
 import argparse
+import json
 import pandas as pd
 import logging
 from youtube_extraction.youtube_pipeline import YouTubeMusicPipeline
@@ -25,6 +26,21 @@ def collect_from_search_queries(pipeline, queries, use_cache=True):
     """
     logger.info(f"Collecting {len(queries)} songs from search queries...")
     tracks = pipeline.search_and_extract_multiple(queries, use_cache)
+    return tracks
+
+
+def collect_from_search_queries_with_source(pipeline, queries, use_cache=True, source_type='seed_query', source_ref='manual', download_audio=True):
+    """
+    Collect from query list with source provenance labels.
+    """
+    logger.info(f"Collecting {len(queries)} query tracks for source={source_ref}...")
+    tracks = []
+    for query in queries:
+        track = pipeline.extract_track_features_from_youtube(query, use_cache=use_cache, download_audio=download_audio)
+        if track:
+            track['source_type'] = source_type
+            track['source_ref'] = source_ref
+            tracks.append(track)
     return tracks
 
 
@@ -161,6 +177,37 @@ def _load_seed_lines(path):
     return lines
 
 
+def _load_seed_source_config(path):
+    """
+    Load seed source config JSON.
+    Format:
+    {
+      "queries": [{"name": "global_pop", "items": ["...", "..."]}],
+      "playlists": [{"name": "editorial_us", "items": ["url1", "url2"]}],
+      "channels": [{"name": "label_channels", "items": ["UC..."]}]
+    }
+    """
+    if not path or not os.path.exists(path):
+        return {}
+
+    try:
+        with open(path, 'r') as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            return data
+    except Exception as e:
+        logger.warning(f"Could not load seed source config {path}: {e}")
+    return {}
+
+
+def _normalize_regions(regions):
+    if isinstance(regions, str):
+        return [r.strip() for r in regions.split(',') if r.strip()]
+    if isinstance(regions, list):
+        return [str(r).strip() for r in regions if str(r).strip()]
+    return ['US']
+
+
 def _merge_existing_raw(new_df, data_dir):
     """
     Merge with existing raw dataset if present.
@@ -193,35 +240,64 @@ def main():
     parser.add_argument('--no-cache', action='store_true')
     parser.add_argument('--append', action='store_true')
     parser.add_argument('--skip-curated', action='store_true')
+    parser.add_argument('--seed-source-config', default=os.path.join('data_extraction', 'seed_sources.json'))
+    parser.add_argument('--expand-related', action='store_true')
+    parser.add_argument('--expand-from-channels', action='store_true')
+    parser.add_argument('--related-per-seed', type=int, default=5)
+    parser.add_argument('--videos-per-channel', type=int, default=10)
+    parser.add_argument('--max-seed-expansion-base', type=int, default=100)
+    parser.add_argument('--request-download-audio', action='store_true')
     args = parser.parse_args()
 
     use_cache = not args.no_cache
+    download_audio = args.request_download_audio
 
     # Initialize pipeline
     logger.info("Initializing YouTube Music Pipeline...")
     pipeline = YouTubeMusicPipeline()
 
     all_tracks = []
+    source_stats = {}
+
+    def _add_tracks(source_name, tracks):
+        if not tracks:
+            return
+        all_tracks.extend(tracks)
+        source_stats[source_name] = source_stats.get(source_name, 0) + len(tracks)
 
     # Method 1: Collect from curated search queries (fast, diverse)
     if not args.skip_curated:
         logger.info("\n=== Collecting from curated queries ===")
         queries = get_diverse_music_queries()
-        query_tracks = collect_from_search_queries(pipeline, queries, use_cache=use_cache)
-        all_tracks.extend(query_tracks)
+        query_tracks = collect_from_search_queries_with_source(
+            pipeline,
+            queries,
+            use_cache=use_cache,
+            source_type='seed_query',
+            source_ref='curated_builtin',
+            download_audio=download_audio,
+        )
+        _add_tracks('seed_query:curated_builtin', query_tracks)
         logger.info(f"Collected {len(query_tracks)} tracks from curated queries")
 
     # Method 2: Collect from seed queries file
     seed_queries = _load_seed_lines(args.query_file)
     if seed_queries:
         logger.info("\n=== Collecting from seed queries file ===")
-        seed_query_tracks = collect_from_search_queries(pipeline, seed_queries, use_cache=use_cache)
-        all_tracks.extend(seed_query_tracks)
+        seed_query_tracks = collect_from_search_queries_with_source(
+            pipeline,
+            seed_queries,
+            use_cache=use_cache,
+            source_type='seed_query',
+            source_ref=f'file:{args.query_file}',
+            download_audio=download_audio,
+        )
+        _add_tracks(f'seed_query:file:{args.query_file}', seed_query_tracks)
         logger.info(f"Collected {len(seed_query_tracks)} tracks from seed queries")
 
     # Method 3: Collect from popular videos (optional - uses API quota)
     if args.include_popular:
-        regions = [r.strip() for r in args.regions.split(',') if r.strip()]
+        regions = _normalize_regions(args.regions)
         logger.info("\n=== Collecting popular music ===")
         popular_tracks = collect_popular_music(
             pipeline,
@@ -229,7 +305,10 @@ def main():
             max_per_region=args.max_per_region,
             use_cache=use_cache
         )
-        all_tracks.extend(popular_tracks)
+        for t in popular_tracks:
+            t['source_type'] = 'seed_chart'
+            t['source_ref'] = 'youtube_most_popular'
+        _add_tracks('seed_chart:youtube_most_popular', popular_tracks)
         logger.info(f"Collected {len(popular_tracks)} popular tracks")
 
     # Method 4: Collect from playlists file
@@ -242,8 +321,107 @@ def main():
             max_videos=args.max_per_playlist,
             use_cache=use_cache
         )
-        all_tracks.extend(playlist_tracks)
+        for t in playlist_tracks:
+            t['source_type'] = 'seed_playlist'
+            t['source_ref'] = f'file:{args.playlist_file}'
+        _add_tracks(f'seed_playlist:file:{args.playlist_file}', playlist_tracks)
         logger.info(f"Collected {len(playlist_tracks)} tracks from playlists")
+
+    # Method 5: Config-driven seed sources (queries/playlists/channels)
+    seed_cfg = _load_seed_source_config(args.seed_source_config)
+    if seed_cfg:
+        logger.info("\n=== Collecting from seed source config ===")
+
+        for q_group in seed_cfg.get('queries', []):
+            name = q_group.get('name', 'unnamed_query_group')
+            items = q_group.get('items', [])
+            if not items:
+                continue
+            tracks = collect_from_search_queries_with_source(
+                pipeline,
+                items,
+                use_cache=use_cache,
+                source_type='seed_query',
+                source_ref=f'config_query:{name}',
+                download_audio=download_audio,
+            )
+            _add_tracks(f'seed_query:config:{name}', tracks)
+
+        for p_group in seed_cfg.get('playlists', []):
+            name = p_group.get('name', 'unnamed_playlist_group')
+            items = p_group.get('items', [])
+            if not items:
+                continue
+            tracks = collect_from_playlists(
+                pipeline,
+                items,
+                max_videos=args.max_per_playlist,
+                use_cache=use_cache,
+            )
+            for t in tracks:
+                t['source_type'] = 'seed_playlist'
+                t['source_ref'] = f'config_playlist:{name}'
+            _add_tracks(f'seed_playlist:config:{name}', tracks)
+
+        for c_group in seed_cfg.get('channels', []):
+            name = c_group.get('name', 'unnamed_channel_group')
+            items = c_group.get('items', [])
+            if not items:
+                continue
+            channel_video_ids = pipeline.expand_from_channels(items, per_channel=args.videos_per_channel)
+            channel_tracks = pipeline.extract_features_from_video_ids(
+                channel_video_ids,
+                use_cache=use_cache,
+                download_audio=download_audio,
+                source=f'config_channel:{name}',
+            )
+            for t in channel_tracks:
+                t['source_type'] = 'seed_channel'
+                t['source_ref'] = f'config_channel:{name}'
+            _add_tracks(f'seed_channel:config:{name}', channel_tracks)
+
+    # Method 6: Expansion sources from already collected seeds
+    if args.expand_related or args.expand_from_channels:
+        logger.info("\n=== Running expansion sources ===")
+        seed_ids = []
+        for t in all_tracks:
+            track_id = t.get('id')
+            if track_id:
+                seed_ids.append(track_id)
+        seed_ids = list(dict.fromkeys(seed_ids))[:args.max_seed_expansion_base]
+
+        if args.expand_related and seed_ids:
+            related_ids = pipeline.expand_from_related_videos(seed_ids, per_seed=args.related_per_seed)
+            related_tracks = pipeline.extract_features_from_video_ids(
+                related_ids,
+                use_cache=use_cache,
+                download_audio=download_audio,
+                source='exp_related',
+            )
+            for t in related_tracks:
+                t['source_type'] = 'exp_related'
+                t['source_ref'] = 'related_to_seed_videos'
+            _add_tracks('exp_related:seed_videos', related_tracks)
+
+        if args.expand_from_channels:
+            channel_ids = []
+            for t in all_tracks:
+                cid = t.get('channel_id')
+                if cid:
+                    channel_ids.append(cid)
+            channel_ids = list(dict.fromkeys(channel_ids))[:args.max_seed_expansion_base]
+            if channel_ids:
+                exp_channel_ids = pipeline.expand_from_channels(channel_ids, per_channel=args.videos_per_channel)
+                exp_channel_tracks = pipeline.extract_features_from_video_ids(
+                    exp_channel_ids,
+                    use_cache=use_cache,
+                    download_audio=download_audio,
+                    source='exp_channel',
+                )
+                for t in exp_channel_tracks:
+                    t['source_type'] = 'exp_channel'
+                    t['source_ref'] = 'seed_channel_uploads'
+                _add_tracks('exp_channel:seed_channels', exp_channel_tracks)
 
     # Check if we have any tracks
     if not all_tracks:
@@ -253,6 +431,11 @@ def main():
     # Convert to DataFrame
     logger.info(f"\n=== Processing {len(all_tracks)} total tracks ===")
     df = pd.DataFrame(all_tracks)
+
+    if 'source_type' not in df.columns:
+        df['source_type'] = 'unknown'
+    if 'source_ref' not in df.columns:
+        df['source_ref'] = 'unknown'
 
     # Save raw data
     os.makedirs('data_extraction', exist_ok=True)
@@ -267,6 +450,10 @@ def main():
 
     logger.info(f"\n=== Collection Complete! ===")
     logger.info(f"Total tracks: {len(processed_df)}")
+    if source_stats:
+        logger.info("Source contribution summary:")
+        for src, count in sorted(source_stats.items(), key=lambda kv: kv[1], reverse=True):
+            logger.info(f"  - {src}: {count}")
     logger.info(f"Files created:")
     logger.info(f"  - data_extraction/youtube_music_raw.csv")
     logger.info(f"  - data_extraction/youtube_music.csv")

@@ -150,6 +150,66 @@ class YouTubeAPI:
             logger.error(f"Error fetching video {video_id}: {e}")
             return None
 
+    def get_related_videos(self, video_id, max_results=10):
+        """
+        Get related music videos for a seed video.
+        Args:
+            video_id: Seed YouTube video ID
+            max_results: Number of related IDs to return
+        Returns:
+            List of related video IDs
+        """
+        try:
+            request = self.youtube.search().list(
+                part='id',
+                type='video',
+                relatedToVideoId=video_id,
+                videoCategoryId='10',
+                maxResults=max_results,
+            )
+            response = request.execute()
+
+            related_ids = []
+            for item in response.get('items', []):
+                item_id = item.get('id', {}).get('videoId')
+                if item_id:
+                    related_ids.append(item_id)
+            return related_ids
+        except HttpError as e:
+            logger.error(f"Error fetching related videos for {video_id}: {e}")
+            return []
+
+    def get_channel_videos(self, channel_id, max_results=10, order='date'):
+        """
+        Get channel music videos for expansion from seed channels.
+        Args:
+            channel_id: YouTube channel ID
+            max_results: Number of video IDs to return
+            order: Search ordering (date/rating/relevance/viewCount)
+        Returns:
+            List of video IDs from the channel
+        """
+        try:
+            request = self.youtube.search().list(
+                part='id',
+                channelId=channel_id,
+                type='video',
+                videoCategoryId='10',
+                maxResults=max_results,
+                order=order,
+            )
+            response = request.execute()
+
+            video_ids = []
+            for item in response.get('items', []):
+                item_id = item.get('id', {}).get('videoId')
+                if item_id:
+                    video_ids.append(item_id)
+            return video_ids
+        except HttpError as e:
+            logger.error(f"Error fetching channel videos for {channel_id}: {e}")
+            return []
+
     def get_playlist_videos(self, playlist_id, max_results=50):
         """
         Get all videos from a YouTube playlist
