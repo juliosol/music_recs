@@ -48,20 +48,25 @@ pip install -r requirements_youtube.txt
 
 #### 3. Set Up YouTube API Key
 
-Your `credentials.json` already has a YouTube API key configured!
+Create local credentials (or use an environment variable):
 
-```json
-{
-  "youtube_api_key": "YOUR_KEY_HERE"
-}
+```bash
+python create_youtube_credentials.py --key "YOUR_YOUTUBE_API_KEY"
 ```
 
-To get your own key:
+This updates local `credentials.json` (gitignored) and preserves any existing fields.
+
+You can also set an env var instead:
+
+```bash
+export YOUTUBE_API_KEY="YOUR_YOUTUBE_API_KEY"
+```
+
+To get your key:
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create/select a project
 3. Enable YouTube Data API v3
 4. Create API key credentials
-5. Add key to credentials.json
 
 ---
 

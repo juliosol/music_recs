@@ -39,46 +39,41 @@ def test_imports():
 
 
 def test_credentials():
-    """Test that credentials file exists and has YouTube API key"""
+    """Test that a YouTube API key can be loaded from env or credentials files"""
     logger.info("\n=== Testing Credentials ===")
 
-    creds_path = 'credentials.json'
-    if not os.path.exists(creds_path):
-        logger.error(f"✗ credentials.json not found")
-        return False
-
     try:
-        import json
-        with open(creds_path, 'r') as f:
-            creds = json.load(f)
+        from youtube_extraction.youtube_api import load_api_key
 
-        if 'youtube_api_key' in creds and creds['youtube_api_key']:
-            logger.info(f"✓ YouTube API key found")
+        api_key = load_api_key()
+        if api_key:
+            logger.info("✓ YouTube API key found")
             return True
-        else:
-            logger.error(f"✗ youtube_api_key not found in credentials.json")
-            return False
+
+        logger.warning("⚠ YouTube API key not configured (quota-based calls will fail)")
+        logger.warning("  To add your key, run one of:")
+        logger.warning("    python create_youtube_credentials.py --key YOUR_KEY")
+        logger.warning("    export YOUTUBE_API_KEY=YOUR_KEY")
+        logger.warning("  Get a free key at: https://console.cloud.google.com/ → YouTube Data API v3")
+        # Treat as a warning, not a hard failure – no-API search still works
+        return True
 
     except Exception as e:
-        logger.error(f"✗ Error reading credentials: {e}")
+        logger.error(f"✗ Error loading credentials module: {e}")
         return False
 
 
 def test_youtube_api():
-    """Test YouTube API connectivity"""
+    """Test YouTube API connectivity (no-quota search path)"""
     logger.info("\n=== Testing YouTube API ===")
 
     try:
         from youtube_extraction.youtube_api import YouTubeAPI, load_api_key
 
-        api_key = load_api_key()
-        if not api_key:
-            logger.error("✗ Could not load API key")
-            return False
-
+        api_key = load_api_key()  # may be None; no-API search still works
         youtube = YouTubeAPI(api_key)
 
-        # Test search (without using API quota)
+        # Test search without using API quota (works even without a key)
         results = youtube.search_video("test song", max_results=1, use_api=False)
 
         if results and len(results) > 0:

@@ -41,7 +41,7 @@ class YouTubeMusicPipeline:
 
         if not api_key:
             raise ValueError(
-                "YouTube API key is required. Set YOUTUBE_API_KEY or add youtube_api_key to credentials.json in the project root."
+                "YouTube API key is required. Set YOUTUBE_API_KEY or run: python create_youtube_credentials.py --key YOUR_KEY"
             )
 
         self.youtube_api = YouTubeAPI(api_key)

@@ -20,10 +20,22 @@ class YouTubeAPI:
         """
         Initialize YouTube API client
         Args:
-            api_key: YouTube Data API v3 key
+            api_key: YouTube Data API v3 key (may be None for no-API searches)
         """
         self.api_key = api_key
-        self.youtube = build('youtube', 'v3', developerKey=api_key)
+        self._youtube = None  # lazily initialized on first quota-based call
+
+    @property
+    def youtube(self):
+        """Build the Google API client on first use so searches work without a key."""
+        if self._youtube is None:
+            if not self.api_key:
+                raise ValueError(
+                    "YouTube API key is required for quota-based calls. "
+                    "Run: python create_youtube_credentials.py --key YOUR_KEY"
+                )
+            self._youtube = build('youtube', 'v3', developerKey=self.api_key)
+        return self._youtube
 
     def search_video(self, query, max_results=10, use_api=False):
         """
@@ -42,7 +54,7 @@ class YouTubeAPI:
         try:
             request = self.youtube.search().list(
                 part='snippet',
-                q=query + ' official audio',
+                q=query, # + ' official audio',
                 type='video',
                 videoCategoryId='10',  # Music category
                 maxResults=max_results,

@@ -12,6 +12,8 @@ google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2
 youtube-search-python
+# httpx>=0.24 dropped the `proxies` kwarg that youtube-search-python relies on
+httpx<0.24.0
 
 # Audio analysis
 librosa
