@@ -278,6 +278,11 @@ These are the immediate follow-up actions after Part 2.1 implementation.
 - Added expansion-source query capabilities:
    - related videos expansion from seed IDs,
    - channel-based expansion from seed channels.
+- Added co-occurrence expansion capabilities:
+   - artist co-occurrence mining module (`youtube_extraction/cooccurrence.py`),
+   - persisted graph support (`data_extraction/cooccurrence_graph.json`),
+   - query generation for underrepresented co-occurring artists,
+   - collector wiring for co-occurrence expansion and graph merge/save.
 - Collector supports new 3.1 options:
    - `--seed-source-config`
    - `--expand-related`
@@ -285,18 +290,61 @@ These are the immediate follow-up actions after Part 2.1 implementation.
    - `--related-per-seed`
    - `--videos-per-channel`
    - `--max-seed-expansion-base`
+   - `--expand-cooccurrence`
+   - `--cooccurrence-top-pairs`
+   - `--cooccurrence-max-existing`
+   - `--cooccurrence-graph`
 
-### 12.3 Immediate next execution commands (3.1)
+### 12.3 Recommendation serving hardening completed
+- Fixed request-time recommendation failures caused by non-numeric provenance fields in feature vectors.
+- Hardened all recommendation similarity paths to numeric-only feature columns:
+   - primary model path,
+   - feature-space fallback path,
+   - diversity reranking path.
+- Updated normalization to exclude provenance metadata from normalized feature tables:
+   - dropped `source_type`, `source_ref`, `ingested_at` from normalized feature outputs.
+- Restarted and validated Flask app health after fixes:
+   - `/health` returns `status=ok` with loaded songs/features.
+
+### 12.4 Immediate next execution commands (3.1)
 1. Dry run seed sources only:
     - `conda run -n music_recs python collect_youtube_dataset.py --seed-source-config data_extraction/seed_sources.json --skip-curated --append`
 2. Enable related-video expansion:
     - `conda run -n music_recs python collect_youtube_dataset.py --seed-source-config data_extraction/seed_sources.json --expand-related --related-per-seed 5 --max-seed-expansion-base 100 --append`
 3. Enable channel expansion:
     - `conda run -n music_recs python collect_youtube_dataset.py --seed-source-config data_extraction/seed_sources.json --expand-from-channels --videos-per-channel 10 --max-seed-expansion-base 100 --append`
+4. Enable co-occurrence expansion:
+    - `conda run -n music_recs python collect_youtube_dataset.py --seed-source-config data_extraction/seed_sources.json --expand-cooccurrence --cooccurrence-top-pairs 20 --cooccurrence-max-existing 3 --append`
 
-### 12.4 Future improvements to prioritize
-- Add co-occurrence expansion from user playlist overlap graphs.
+### 12.5 Future improvements to prioritize
 - Add source-level quality scoring and source pruning rules.
 - Add incremental scheduler (daily) with per-source quotas and retry policy.
 - Add canonical artist/title normalization keys for stronger deduplication.
 - Add policy/compliance filters before publish snapshots.
+
+---
+
+## 13) Next Session Handoff (Start Here)
+
+### 13.1 Current state at handoff
+- App is running with the latest recommendation-path numeric hardening.
+- Dataset artifacts are present and loaded by the app (`youtube_music.csv`, `normalized_youtube_music.csv`).
+- Co-occurrence expansion is wired end-to-end in collector and graph persistence is enabled.
+
+### 13.2 First tasks next session
+1. Re-run a focused collector pass with co-occurrence enabled and inspect source contribution quality:
+   - `conda run -n music_recs python collect_youtube_dataset.py --seed-source-config data_extraction/seed_sources.json --expand-cooccurrence --cooccurrence-top-pairs 20 --cooccurrence-max-existing 3 --append`
+2. Audit and harden YouTube API query error handling in `youtube_extraction/youtube_api.py`:
+   - prioritize fixes for intermittent errors observed in logs:
+     - `'NoneType' object is not subscriptable`
+     - `can only concatenate str (not "NoneType") to str`
+3. Add lightweight query sanitization for co-occurrence-generated artist names (remove noisy tokens and malformed strings) before API search.
+4. Run end-to-end validation:
+   - `conda run -n music_recs python test_youtube_system.py`
+   - manual `/recommend` smoke tests using at least 3 playlists.
+
+### 13.3 Definition of done for next session
+- Collector run completes with reduced YouTube API query errors.
+- Co-occurrence expansion yields usable incremental tracks with cleaner artist/query distribution.
+- `/recommend` works reliably without float conversion errors.
+- Health metrics show successful recommendation requests and stable fallback behavior.

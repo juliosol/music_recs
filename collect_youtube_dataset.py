@@ -9,6 +9,14 @@ import pandas as pd
 import logging
 from youtube_extraction.youtube_pipeline import YouTubeMusicPipeline
 from youtube_extraction.feature_eng_youtube import playlist_preprocessing_youtube
+from youtube_extraction.cooccurrence import (
+    generate_cooccurrence_expansion_queries,
+    mine_artist_cooccurrence,
+    save_cooccurrence_graph,
+    load_cooccurrence_graph,
+    merge_cooccurrence_graphs,
+    top_pairs_report,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -247,6 +255,14 @@ def main():
     parser.add_argument('--videos-per-channel', type=int, default=10)
     parser.add_argument('--max-seed-expansion-base', type=int, default=100)
     parser.add_argument('--request-download-audio', action='store_true')
+    parser.add_argument('--expand-cooccurrence', action='store_true',
+                        help='Mine co-occurrence from raw dataset and collect tracks for underrepresented artists')
+    parser.add_argument('--cooccurrence-top-pairs', type=int, default=30,
+                        help='Number of top co-occurrence pairs to use for expansion')
+    parser.add_argument('--cooccurrence-max-existing', type=int, default=2,
+                        help='Only expand into artists with this many or fewer existing tracks')
+    parser.add_argument('--cooccurrence-graph', default=os.path.join('data_extraction', 'cooccurrence_graph.json'),
+                        help='Path to persist/load the co-occurrence graph')
     args = parser.parse_args()
 
     use_cache = not args.no_cache
@@ -422,6 +438,59 @@ def main():
                     t['source_type'] = 'exp_channel'
                     t['source_ref'] = 'seed_channel_uploads'
                 _add_tracks('exp_channel:seed_channels', exp_channel_tracks)
+
+    # Method 7: Co-occurrence expansion — mine catalog, find underrepresented artists
+    if args.expand_cooccurrence:
+        logger.info("\n=== Running co-occurrence expansion ===")
+
+        # Load any previously accumulated raw data to get richer co-occurrence signal
+        cooc_base_path = os.path.join('data_extraction', 'youtube_music_raw.csv')
+        cooc_df_parts = [pd.DataFrame(all_tracks)]
+        if args.append and os.path.exists(cooc_base_path):
+            try:
+                cooc_df_parts.append(pd.read_csv(cooc_base_path))
+            except Exception as e:
+                logger.warning(f"Could not load existing raw data for co-occurrence: {e}")
+
+        cooc_input_df = pd.concat(cooc_df_parts, ignore_index=True)
+        if 'id' in cooc_input_df.columns:
+            cooc_input_df = cooc_input_df.drop_duplicates(subset=['id'])
+
+        # Optionally merge with persisted graph from prior runs
+        existing_graph = load_cooccurrence_graph(args.cooccurrence_graph)
+        fresh_pairs = mine_artist_cooccurrence(cooc_input_df)
+        merged_graph = merge_cooccurrence_graphs(existing_graph, fresh_pairs)
+
+        logger.info(f"Co-occurrence graph: {len(merged_graph)} artist pairs")
+        if merged_graph:
+            logger.info("Top co-occurring artist pairs:\n" + top_pairs_report(merged_graph, n=10))
+
+        save_cooccurrence_graph(merged_graph, args.cooccurrence_graph)
+
+        # Generate expansion queries for underrepresented co-occurring artists
+        cooc_queries, cooc_stats = generate_cooccurrence_expansion_queries(
+            cooc_input_df,
+            top_pairs=args.cooccurrence_top_pairs,
+            queries_per_artist=3,
+            min_cooccurrence_score=1,
+            max_existing_tracks=args.cooccurrence_max_existing,
+        )
+
+        if cooc_queries:
+            logger.info(f"Co-occurrence expansion: collecting {len(cooc_queries)} queries")
+            cooc_tracks = collect_from_search_queries_with_source(
+                pipeline,
+                cooc_queries,
+                use_cache=use_cache,
+                source_type='exp_cooccurrence',
+                source_ref='cooccurrence_expansion',
+                download_audio=download_audio,
+            )
+            _add_tracks('exp_cooccurrence', cooc_tracks)
+            logger.info(f"Co-occurrence expansion added {len(cooc_tracks)} new tracks")
+        else:
+            logger.info("Co-occurrence expansion: no new queries generated "
+                        "(all co-occurring artists already well represented)")
 
     # Check if we have any tracks
     if not all_tracks:

@@ -151,7 +151,13 @@ def _feature_space_fallback_recommendations(user_playlist_df, candidate_size=50)
     if 'id' not in candidate_features.columns or 'id' not in user_playlist_df.columns:
         return pd.DataFrame()
 
-    feature_cols = [c for c in candidate_features.columns if c != 'id' and c in user_playlist_df.columns]
+    feature_cols = [
+        c for c in candidate_features.columns
+        if c != 'id'
+        and c in user_playlist_df.columns
+        and pd.api.types.is_numeric_dtype(candidate_features[c])
+        and pd.api.types.is_numeric_dtype(user_playlist_df[c])
+    ]
     if not feature_cols:
         return pd.DataFrame()
 

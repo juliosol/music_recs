@@ -63,8 +63,15 @@ def create_varied_playlist(all_songs_df, normalized_df, seed_songs, playlist_len
         logger.warning("No candidates found")
         return pd.DataFrame()
 
-    # Get feature vectors
-    candidate_features = normalized_df[normalized_df['id'].isin(candidates_df['id'].values)]
+    # Get feature vectors (numeric-only to avoid metadata columns in similarity math)
+    candidate_features = normalized_df[normalized_df['id'].isin(candidates_df['id'].values)].copy()
+    numeric_cols = [
+        c for c in candidate_features.columns
+        if c != 'id' and pd.api.types.is_numeric_dtype(candidate_features[c])
+    ]
+    if not numeric_cols:
+        logger.warning("No numeric feature columns available for diversity scoring")
+        return candidates_df.head(min(playlist_length, len(candidates_df))).reset_index(drop=True)
 
     selected_indices = []
     selected_features = []
@@ -91,7 +98,7 @@ def create_varied_playlist(all_songs_df, normalized_df, seed_songs, playlist_len
                     scores.append(-1)
                     continue
 
-                candidate_feat_values = candidate_feat.drop('id', axis=1).values[0]
+                candidate_feat_values = candidate_feat[numeric_cols].fillna(0).values[0]
 
                 # Calculate diversity from selected songs
                 diversity_score = calculate_diversity_score(
@@ -123,7 +130,7 @@ def create_varied_playlist(all_songs_df, normalized_df, seed_songs, playlist_len
         candidate_feat = candidate_features[candidate_features['id'] == candidate_id]
 
         if not candidate_feat.empty:
-            candidate_feat_values = candidate_feat.drop('id', axis=1).values[0]
+            candidate_feat_values = candidate_feat[numeric_cols].fillna(0).values[0]
             selected_features.append(candidate_feat_values)
 
     # Return selected songs

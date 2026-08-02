@@ -175,7 +175,8 @@ def feature_normalizer(dataframe):
     drop_cols = ['track_name', 'track_artist_name', 'song_info',
                  'track_name_polarity', 'track_name_subjectivity',
                  'youtube_url', 'artist_genres', 'track_album_type',
-                 'track_album_name', 'track_explicit', 'views', 'likes']
+                 'track_album_name', 'track_explicit', 'views', 'likes',
+                 'source_type', 'source_ref', 'ingested_at']
 
     # Keep only columns that exist
     drop_cols = [col for col in drop_cols if col in dataframe.columns]
